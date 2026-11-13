@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { bindKeys, CAMS, KEYS, setImplement, toggleEngine, touch } from '../input';
 import { Experience } from '../scene/Experience';
 import { BUNCH_KG } from '../sim/estate';
-import { RANGES, setShuttle, shift } from '../sim/tractor';
+import { RANGES, ptoRpm, setShuttle, shift } from '../sim/tractor';
 import { IMPLEMENTS, TRAILER, grassTotal, nearBin, reachableTph, toggleLoad, toggleTip, type Implement } from '../sim/work';
 import { ensureAudio, soundStatus } from '../sound';
 import { tr, useUI, work, type CamMode } from '../store';
@@ -58,8 +58,8 @@ function Panel() {
         <button className={tr.pto ? 'on' : ''} onClick={() => (tr.pto = !tr.pto)}>
           PTO
         </button>
-        <button className={tr.hitchUp ? '' : 'on'} onClick={() => (tr.hitchUp = !tr.hitchUp)}>
-          {tr.hitchUp ? 'Hitch ↓' : 'Hitch ↑'}
+        <button className={tr.hitchUp ? '' : 'on'} onClick={() => (tr.hitchUp = !tr.hitchUp)} title="Klik untuk menaikkan/menurunkan">
+          {tr.hitchUp ? 'Hitch: naik' : 'Hitch: turun'}
         </button>
       </div>
 
@@ -111,7 +111,16 @@ function Panel() {
           <span>
             Pokok sawit terpupuk <b>{work.fed.size}</b>
           </span>
-          <span className="hint">Hitch naik ke posisi kerja, PTO on, lalu jalan di jalan panen di antara barisan pokok.</span>
+          <span>
+            Lebar tabur <b>±{work.spreadRadius.toFixed(1)} m</b> kiri-kanan (PTO {Math.round(ptoRpm(tr))} rpm)
+          </span>
+          <span className="hint">
+            {!tr.pto
+              ? 'Nyalakan PTO, lalu jalan di jalan panen di antara barisan pokok.'
+              : ptoRpm(tr) < 450
+                ? 'Lemparan masih pendek: naikkan gas tangan sampai PTO ±540 rpm (mesin ±2000 rpm) supaya pupuk sampai ke piringan pokok.'
+                : 'Jalan pelan di jalan panen; pokok di kiri-kanan akan terpupuk.'}
+          </span>
         </div>
       )}
 

@@ -93,7 +93,7 @@ export function Spreader() {
         const q = parts[next.current];
         next.current = (next.current + 1) % N;
         const a = (Math.random() - 0.5) * Math.PI * 1.3 + Math.PI;
-        const sp = 5 + Math.random() * 4;
+        const sp = (5 + Math.random() * 4) * Math.max(0.35, work.spreadRadius / 7);
         q.p.set(0, 0.55, -0.35);
         q.v.set(Math.sin(a) * sp, 1.2 + Math.random(), Math.cos(a) * sp * 0.6);
         q.age = 0;

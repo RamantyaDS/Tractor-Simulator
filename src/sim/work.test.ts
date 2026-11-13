@@ -70,3 +70,29 @@ describe('slasher', () => {
     expect(w.cutCount).toBeGreaterThan(0);
   });
 });
+
+describe('spreader', () => {
+  it('throws wider with PTO speed and feeds palms from the harvest path', () => {
+    const t = tractor();
+    const w = create();
+    startEngine(t);
+    run((dt) => stepT(t, dt), 2);
+    attach(w, t, 'spreader');
+    t.pto = true;
+    t.hitchUp = false; // hitch position no longer matters
+    t.hitch = 0;
+    // middle of a harvest path, between two palm rows
+    t.x = 40;
+    t.z = -106.1;
+    t.heading = Math.PI / 2;
+    t.v = 1;
+    step(w, t, 0.02);
+    const idleRadius = w.spreadRadius;
+    expect(w.spreading).toBe(true);
+    t.rpm = 2000;
+    step(w, t, 0.02);
+    expect(w.spreadRadius).toBeGreaterThan(idleRadius * 2);
+    expect(w.fed.size).toBeGreaterThan(0);
+    expect(w.fert).toBeLessThan(800);
+  });
+});

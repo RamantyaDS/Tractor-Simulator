@@ -3,7 +3,7 @@
 // - rotary slasher on the 3-point linkage, PTO driven: cuts the grass in the inter-rows (gawangan)
 // - fertiliser spreader on the 3-point linkage, PTO driven: broadcasts fertiliser onto the palm circles (piringan)
 import { BIN, BUNCH_KG, PALMS, ROAD_HALF, ROWS, PATHS, rowZ, makeTph, surface, type Tph } from './estate';
-import type { Tractor } from './tractor';
+import { ptoRpm, type Tractor } from './tractor';
 
 export type Implement = 'none' | 'trailer' | 'slasher' | 'spreader';
 
@@ -58,6 +58,7 @@ export interface Work {
   fert: number; // kg in hopper
   fed: Set<number>;
   spreading: boolean;
+  spreadRadius: number; // m each side, follows PTO speed
   message: string;
   events: string[];
 }
@@ -110,6 +111,7 @@ export function create(): Work {
     fert: 800,
     fed: new Set(),
     spreading: false,
+    spreadRadius: 0,
     message: '',
     events: [],
   };
@@ -324,14 +326,17 @@ export function step(w: Work, t: Tractor, dt: number) {
   if (w.kind === 'spreader') {
     t.draft = 0;
     t.extraMass = IMPLEMENTS.spreader.mass + w.fert;
-    w.spreading = t.pto && t.engine === 'running' && t.hitch > 0.3 && w.fert > 0 && Math.abs(t.v) > 0.2;
+    // The disc throws further the faster it spins: ~7 m each side at PTO 540, only ~2–3 m at idle.
+    const disc = Math.min(1.1, ptoRpm(t) / 540);
+    w.spreadRadius = t.pto && t.engine === 'running' ? 7 * disc : 0;
+    w.spreading = t.pto && t.engine === 'running' && w.fert > 0 && Math.abs(t.v) > 0.2;
     if (w.spreading) {
-      // ~3.5 kg per palm at walking speed; disc throws 6–7 m to each side.
-      w.fert = Math.max(0, w.fert - dt * 1.2 * Math.abs(t.v));
+      // ~3.5 kg per palm at walking speed.
+      w.fert = Math.max(0, w.fert - dt * 1.2 * Math.abs(t.v) * Math.max(0.3, disc));
       const ip = implementPoint(t);
       PALMS.forEach((p, i) => {
         if (w.fed.has(i)) return;
-        if (Math.hypot(p.x - ip.x, p.z - ip.z) < 7) {
+        if (Math.hypot(p.x - ip.x, p.z - ip.z) < w.spreadRadius) {
           w.fed.add(i);
           w.events.push('fed');
         }
