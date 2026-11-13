@@ -487,3 +487,16 @@ button:focus-visible {
 .snd.bad {
   color: #ffb020;
 }
+
+.debug {
+  position: fixed;
+  right: 16px;
+  top: 260px;
+  z-index: 10;
+  background: #000d;
+  border: 1px solid #ffb020;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+}

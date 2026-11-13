@@ -35,6 +35,52 @@ function unlock(c: AudioContext) {
 }
 let unlocked = false;
 
+/** The ignition key click, played straight to the speakers inside the start click. It is also what made sound
+ * come alive in Edge during testing: an audible tone in the gesture, not just a resume. */
+function keyClick(c: AudioContext) {
+  const t0 = c.currentTime;
+  const o = c.createOscillator();
+  const g = c.createGain();
+  o.type = 'square';
+  o.frequency.setValueAtTime(1800, t0);
+  o.frequency.exponentialRampToValueAtTime(600, t0 + 0.05);
+  g.gain.setValueAtTime(0.12, t0);
+  g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.12);
+  o.connect(g).connect(c.destination);
+  o.start(t0);
+  o.stop(t0 + 0.15);
+}
+
+/** Snapshot for the hidden ?debug panel. */
+export function audioDebug() {
+  return {
+    context: ctx ? ctx.state : 'none',
+    sampleRate: ctx?.sampleRate ?? 0,
+    time: ctx ? ctx.currentTime.toFixed(1) : '0',
+    outputLatency: ctx && 'outputLatency' in ctx ? (ctx as AudioContext).outputLatency.toFixed(3) : '?',
+    loaded: !!N,
+    worklet: !!N?.synth,
+    master: master ? master.gain.value.toFixed(2) : '-',
+    idle: N ? N.idle.g.gain.value.toFixed(2) : '-',
+    mid: N ? N.mid.g.gain.value.toFixed(2) : '-',
+    status: soundStatus.text,
+  };
+}
+
+/** Debug only: a plain tone straight to the speakers. */
+export async function debugBeep() {
+  if (!ctx) await initSound();
+  if (!ctx) return;
+  await ctx.resume();
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  g.gain.value = 0.25;
+  o.frequency.value = 440;
+  o.connect(g).connect(ctx.destination);
+  o.start();
+  o.stop(ctx.currentTime + 0.6);
+}
+
 async function load(c: AudioContext, name: string) {
   const r = await fetch(BASE + name);
   if (!r.ok) throw new Error(`${name}: HTTP ${r.status}`);
@@ -166,6 +212,7 @@ export async function initSound() {
   if (!AC) return report('browser tidak mendukung Web Audio');
   ctx = new AC();
   unlock(ctx);
+  keyClick(ctx);
   report('memuat rekaman…');
   master = ctx.createGain();
   master.gain.value = enabled ? 0.9 : 0;

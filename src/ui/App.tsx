@@ -8,6 +8,7 @@ import { initSound, soundStatus } from '../sound';
 import { tr, useUI, work, type CamMode } from '../store';
 import { Dashboard } from './Dashboard';
 import { Minimap } from './Minimap';
+import { Debug } from './Debug';
 
 const CAM_LABEL: Record<CamMode, string> = { chase: 'Belakang', cab: 'Kabin', orbit: 'Bebas', top: 'Atas', show: 'Pamer' };
 
@@ -213,6 +214,7 @@ export function App() {
       <Toast />
       <Help />
       <Touch />
+      <Debug />
       {!started && (
         <div className="intro">
           <div>
