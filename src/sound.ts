@@ -15,9 +15,19 @@ let master: GainNode;
 let enabled = true;
 let N: Awaited<ReturnType<typeof build>> | null = null;
 
+/** What the sound system is doing, shown in the panel so problems are visible without developer tools. */
+export const soundStatus = { text: 'belum aktif', ok: false };
+const report = (text: string, ok = false) => {
+  soundStatus.text = text;
+  soundStatus.ok = ok;
+};
+
 async function load(c: AudioContext, name: string) {
   const r = await fetch(BASE + name);
-  return c.decodeAudioData(await r.arrayBuffer());
+  if (!r.ok) throw new Error(`${name}: HTTP ${r.status}`);
+  const data = await r.arrayBuffer();
+  // callback form too: older engines only support it
+  return new Promise<AudioBuffer>((res, rej) => c.decodeAudioData(data, res, (e) => rej(new Error(`${name}: tidak bisa didekode (${e?.message ?? e})`))));
 }
 
 function noise(c: AudioContext) {
@@ -139,7 +149,10 @@ async function build(c: AudioContext) {
 /** Must be called from a user gesture. */
 export async function initSound() {
   if (ctx) return ctx.resume();
-  ctx = new AudioContext();
+  const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AC) return report('browser tidak mendukung Web Audio');
+  ctx = new AC();
+  report('memuat rekaman…');
   master = ctx.createGain();
   master.gain.value = enabled ? 0.9 : 0;
   const comp = ctx.createDynamicsCompressor();
@@ -151,9 +164,27 @@ export async function initSound() {
   addEventListener('keydown', wake);
   try {
     N = await build(ctx);
+    report(ctx.state === 'running' ? `aktif${N.synth ? '' : ' (tanpa lapisan sintetis)'}` : 'dijeda browser, klik di mana saja', ctx.state === 'running');
+    ctx.onstatechange = () => report(ctx!.state === 'running' ? 'aktif' : `status: ${ctx!.state}`, ctx!.state === 'running');
   } catch (e) {
     console.error('Sound failed to load', e);
+    report(`gagal: ${(e as Error)?.message ?? e}`);
   }
+}
+
+/** Plays a plain 440 Hz beep straight to the speakers: no files, no filters. */
+export async function testBeep() {
+  if (!ctx) await initSound();
+  if (!ctx) return;
+  await ctx.resume();
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  g.gain.value = 0.25;
+  o.frequency.value = 440;
+  o.connect(g).connect(ctx.destination);
+  o.start();
+  o.stop(ctx.currentTime + 0.6);
+  report(`${soundStatus.text.split(' · ')[0]} · tes nada diputar (status ${ctx.state}, ${ctx.sampleRate} Hz)`, ctx.state === 'running');
 }
 
 export function setSound(on: boolean) {

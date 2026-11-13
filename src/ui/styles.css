@@ -476,3 +476,14 @@ button:focus-visible {
   color: var(--dim);
   line-height: 1.4;
 }
+
+.snd {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+.snd.ok {
+  color: #6fdc8c;
+}
+.snd.bad {
+  color: #ffb020;
+}

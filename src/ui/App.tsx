@@ -4,7 +4,7 @@ import { Experience } from '../scene/Experience';
 import { BUNCH_KG } from '../sim/estate';
 import { RANGES, setShuttle, shift } from '../sim/tractor';
 import { IMPLEMENTS, TRAILER, grassTotal, nearBin, reachableTph, toggleLoad, toggleTip, type Implement } from '../sim/work';
-import { initSound } from '../sound';
+import { initSound, soundStatus, testBeep } from '../sound';
 import { tr, useUI, work, type CamMode } from '../store';
 import { Dashboard } from './Dashboard';
 import { Minimap } from './Minimap';
@@ -122,9 +122,15 @@ function Panel() {
           </button>
         ))}
       </div>
-      <button className="small" onClick={() => ui.set({ help: !ui.help })}>
-        ⌨ Tombol keyboard
-      </button>
+      <div className="row">
+        <button className="small" onClick={() => ui.set({ help: !ui.help })}>
+          ⌨ Tombol keyboard
+        </button>
+        <button className="small" onClick={testBeep}>
+          🔊 Tes suara
+        </button>
+      </div>
+      <p className={`snd ${soundStatus.ok ? 'ok' : 'bad'}`}>Suara: {soundStatus.text}</p>
     </aside>
   );
 }
