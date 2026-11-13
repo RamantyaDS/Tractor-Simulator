@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BIN } from './estate';
 import { create as tractor, startEngine, step as stepT } from './tractor';
-import { attach, craneBase, create, GRASS, step, toggleLoad, toggleTip, TRAILER } from './work';
+import { attach, CRANE_FRONT, craneBase, create, GRASS, step, toggleLoad, toggleTip, TRAILER } from './work';
 
 const run = (fn: (dt: number) => void, s: number, dt = 0.02) => {
   for (let i = 0; i < s / dt; i++) fn(dt);
@@ -24,10 +24,13 @@ describe('trailer and crane', () => {
     const before = p.bunches;
     toggleLoad(w, t);
     expect(w.autoLoad).toBe(true);
+    let overCab = false;
     run((dt) => {
       stepT(t, dt);
       step(w, t, dt);
+      if (w.crane.slew < CRANE_FRONT - 1e-6 || w.crane.slew > 2 * Math.PI - CRANE_FRONT + 1e-6) overCab = true;
     }, 60);
+    expect(overCab).toBe(false); // never swings over the tractor cab
     expect(w.bunches).toBeGreaterThan(10);
     expect(p.bunches).toBeLessThan(before);
     expect(t.towedMass).toBeGreaterThan(2400);

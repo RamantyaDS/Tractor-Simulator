@@ -102,7 +102,7 @@ export function create(): Work {
     tip: 0,
     tipping: false,
     autoLoad: false,
-    crane: { step: 'idle', t: 0, slew: 0, reach: 0.3, drop: 0, carry: 0, target: -1 },
+    crane: { step: 'idle', t: 0, slew: Math.PI, reach: 0.35, drop: 0, carry: 0, target: -1 },
     delivered: 0,
     trips: 0,
     grassCut: new Uint8Array(GRASS.length),
@@ -187,6 +187,11 @@ export function toggleTip(w: Work, t: Tractor) {
 
 const angDiff = (a: number, b: number) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 
+// Crane slew is kept out of the sector ahead of the trailer (where the tractor cab is): angles are handled in
+// [FRONT, 2π − FRONT], so swinging from the body to a TPH always goes round the side, never over the cab.
+export const CRANE_FRONT = 1.0;
+const slewDomain = (a: number) => Math.min(2 * Math.PI - CRANE_FRONT, Math.max(CRANE_FRONT, ((a % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)));
+
 export function step(w: Work, t: Tractor, dt: number) {
   const flow = t.engine === 'running' ? Math.min(1.4, Math.max(0.35, t.rpm / 1500)) : 0; // hydraulic speed follows engine rpm
 
@@ -228,15 +233,15 @@ export function step(w: Work, t: Tractor, dt: number) {
     if (c.step !== 'idle') {
       const p = w.tph[c.target];
       const b = craneBase(w);
-      const want = p ? Math.atan2(p.x - b.x, p.z - b.z) - w.theading : 0;
+      const want = slewDomain(p ? Math.atan2(p.x - b.x, p.z - b.z) - w.theading : Math.PI);
       const dist = p ? Math.hypot(p.x - b.x, p.z - b.z) : 2;
       const sp = dt * flow * 1.9;
       const towards = (v: number, to: number, rate: number) => v + Math.sign(to - v) * Math.min(Math.abs(to - v), rate);
       switch (c.step) {
         case 'swingOut':
-          c.slew = towards(c.slew, angDiff(want, 0), sp * 1.1);
+          c.slew = towards(c.slew, want, sp * 1.1);
           c.reach = towards(c.reach, Math.min(1, dist / TRAILER.craneReach), sp * 0.6);
-          if (Math.abs(angDiff(c.slew, want)) < 0.02 && Math.abs(c.reach - Math.min(1, dist / TRAILER.craneReach)) < 0.02) c.step = 'lower';
+          if (Math.abs(c.slew - want) < 0.02 && Math.abs(c.reach - Math.min(1, dist / TRAILER.craneReach)) < 0.02) c.step = 'lower';
           break;
         case 'lower':
           c.drop = towards(c.drop, 1, sp * 0.9);

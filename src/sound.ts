@@ -63,16 +63,23 @@ async function build(c: AudioContext) {
   const idle = loop(c, idleB, engineBus);
   const mid = loop(c, midB, engineBus);
 
-  // Synth combustion layer for load (same worklet as the genset, 4 cylinders).
-  const url = URL.createObjectURL(new Blob([ENGINE_WORKLET], { type: 'application/javascript' }));
-  await c.audioWorklet.addModule(url);
-  const synth = new AudioWorkletNode(c, 'diesel-engine', { outputChannelCount: [1] });
+  // Synth combustion layer for load (same worklet as the genset, 4 cylinders). Optional: some browsers or strict
+  // security modes block AudioWorklet, and the recorded sounds must still play without it.
   const synthG = c.createGain();
   synthG.gain.value = 0;
-  const synthLp = c.createBiquadFilter();
-  synthLp.type = 'lowpass';
-  synthLp.frequency.value = 900;
-  synth.connect(synthLp).connect(synthG).connect(engineBus);
+  let synth: AudioWorkletNode | null = null;
+  try {
+    if (!c.audioWorklet) throw new Error('AudioWorklet not available');
+    const url = URL.createObjectURL(new Blob([ENGINE_WORKLET], { type: 'application/javascript' }));
+    await c.audioWorklet.addModule(url);
+    synth = new AudioWorkletNode(c, 'diesel-engine', { outputChannelCount: [1] });
+    const synthLp = c.createBiquadFilter();
+    synthLp.type = 'lowpass';
+    synthLp.frequency.value = 900;
+    synth.connect(synthLp).connect(synthG).connect(engineBus);
+  } catch (e) {
+    console.warn('Engine synth layer unavailable, using recordings only', e);
+  }
 
   // Turbo whistle.
   const turbo = c.createOscillator();
@@ -138,7 +145,15 @@ export async function initSound() {
   const comp = ctx.createDynamicsCompressor();
   comp.threshold.value = -12;
   master.connect(comp).connect(ctx.destination);
-  N = await build(ctx);
+  // Browsers may suspend audio (tab in background, power saving); resume on the next interaction.
+  const wake = () => ctx?.state !== 'running' && ctx?.resume();
+  addEventListener('pointerdown', wake);
+  addEventListener('keydown', wake);
+  try {
+    N = await build(ctx);
+  } catch (e) {
+    console.error('Sound failed to load', e);
+  }
 }
 
 export function setSound(on: boolean) {
@@ -213,12 +228,14 @@ export function updateSound(distance: number, inCab: boolean) {
   k(N.tone.frequency, inCab ? 900 + tr.load * 500 : 1800 + tr.load * 3500, 0.15);
   k(N.engineBus.gain, near * (inCab ? 0.7 : 1), 0.2);
 
-  const p = N.synth.parameters;
-  k(p.get('rpm')!, running ? rpm : 0, 0.02);
-  k(p.get('load')!, tr.load, 0.2);
-  p.get('firing')!.setValueAtTime(on, t);
-  p.get('starter')!.setValueAtTime(0, t);
-  k(p.get('cold')!, Math.max(0, Math.min(1, (60 - tr.coolant) / 30)), 1);
+  if (N.synth) {
+    const p = N.synth.parameters;
+    k(p.get('rpm')!, running ? rpm : 0, 0.02);
+    k(p.get('load')!, tr.load, 0.2);
+    p.get('firing')!.setValueAtTime(on, t);
+    p.get('starter')!.setValueAtTime(0, t);
+    k(p.get('cold')!, Math.max(0, Math.min(1, (60 - tr.coolant) / 30)), 1);
+  }
   k(N.synthG.gain, on * (0.08 + 0.55 * Math.min(1, tr.load)), 0.15);
 
   k(N.turbo.frequency, 2500 + 5000 * Math.min(1, rpm / 2200) * (0.4 + 0.6 * Math.min(1, tr.load)), 0.4);

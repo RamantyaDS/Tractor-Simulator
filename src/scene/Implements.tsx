@@ -246,8 +246,8 @@ export function Trailer() {
       <group position={[0.55, 1.0, 2.75]}>
         <Cyl r={0.16} l={0.5} m={M.yellow} position={[0, 0.25, 0]} />
         <group ref={slew} position={[0, 0.5, 0]}>
-          <Cyl r={0.1} l={1.3} m={M.yellow} position={[0, 0.65, 0]} />
-          <group ref={boom} position={[0, 1.3, 0]}>
+          <Cyl r={0.1} l={1.7} m={M.yellow} position={[0, 0.85, 0]} />
+          <group ref={boom} position={[0, 1.7, 0]}>
             <Box s={[0.14, 0.18, 3.0]} m={M.yellow} position={[0, 0, 1.5]} />
             <Cyl r={0.04} l={1.6} axis="z" m={M.steel} position={[0, -0.16, 0.9]} />
             <group ref={stick} position={[0, 0, 3.0]}>
