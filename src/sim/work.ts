@@ -21,7 +21,7 @@ export const IMPLEMENTS: Record<Implement, { name: string; mass: number; towed: 
     mass: 650,
     towed: false,
     ptoNm: 95,
-    desc: 'Pembabat rumput di gawangan. Pisau diputar PTO 540 rpm, diturunkan dengan hitch 3-titik.',
+    desc: 'Membabat rumput dan gulma di gawangan (jalur antar-barisan). Supaya pemanen mudah lewat, brondolan (buah lepas) mudah dipungut, gulma tidak merebut pupuk dan air dari sawit, dan tikus serta ular tidak bersarang. Pisau diputar PTO, deck diturunkan dengan hitch.',
   },
   spreader: {
     name: 'Spreader pupuk 800 kg',

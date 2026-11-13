@@ -7,6 +7,7 @@ import { applyHeld } from '../input';
 import { playEvent, updateSound } from '../sound';
 import { advance, onEvent, tr, useUI, work } from '../store';
 import { Exhaust } from './Exhaust';
+import { Fx } from './Fx';
 import { Trailer } from './Implements';
 import { TractorModel } from './Tractor';
 import { World } from './World';
@@ -139,6 +140,7 @@ export function Experience() {
       <TractorModel />
       <Trailer />
       <Exhaust />
+      <Fx />
       <CameraRig />
       <Driver />
     </Canvas>

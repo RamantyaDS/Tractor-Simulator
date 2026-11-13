@@ -74,44 +74,10 @@ export function Slasher() {
 export function Spreader() {
   const disc = useRef<THREE.Group>(null);
   const ref = useRef<THREE.Group>(null);
-  const pts = useRef<THREE.Points>(null);
-  const N = 400;
-  const { geo, parts } = useMemo(() => {
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
-    return { geo, parts: Array.from({ length: N }, () => ({ p: new THREE.Vector3(0, -9, 0), v: new THREE.Vector3(), age: 9 })) };
-  }, []);
-  const next = useRef(0);
   useFrame((_, dtRaw) => {
     const dt = Math.min(dtRaw, 0.05);
     ref.current!.visible = work.kind === 'spreader';
-    const spinning = tr.pto && tr.engine === 'running' && work.kind === 'spreader';
-    if (spinning) disc.current!.rotation.y += 25 * dt;
-    // granules flung sideways and back from the spinning disc
-    if (work.spreading) {
-      for (let k = 0; k < 14; k++) {
-        const q = parts[next.current];
-        next.current = (next.current + 1) % N;
-        const a = (Math.random() - 0.5) * Math.PI * 1.3 + Math.PI;
-        const sp = (5 + Math.random() * 4) * Math.max(0.35, work.spreadRadius / 7);
-        q.p.set(0, 0.55, -0.35);
-        q.v.set(Math.sin(a) * sp, 1.2 + Math.random(), Math.cos(a) * sp * 0.6);
-        q.age = 0;
-      }
-    }
-    const pos = geo.attributes.position.array as Float32Array;
-    parts.forEach((q, i) => {
-      q.age += dt;
-      if (q.p.y > -0.4) {
-        q.v.y -= 9.8 * dt;
-        q.p.addScaledVector(q.v, dt);
-      }
-      pos[i * 3] = q.p.x;
-      pos[i * 3 + 1] = q.age > 1.5 ? -9 : q.p.y;
-      pos[i * 3 + 2] = q.p.z;
-    });
-    geo.attributes.position.needsUpdate = true;
-    void pts;
+    if (tr.pto && tr.engine === 'running' && work.kind === 'spreader') disc.current!.rotation.y += Math.min(40, (tr.rpm / 2000) * 40) * dt;
   });
   return (
     <group ref={ref} position={[0, 0.2, -1.55]}>
@@ -145,9 +111,6 @@ export function Spreader() {
           <Box key={i} s={[0.3, 0.05, 0.02]} m={M.steel} position={[Math.cos((i * Math.PI) / 2) * 0.15, 0.03, Math.sin((i * Math.PI) / 2) * 0.15]} rotation={[0, (-i * Math.PI) / 2, 0]} />
         ))}
       </group>
-      <points ref={pts} geometry={geo}>
-        <pointsMaterial color="#efe9d8" size={0.06} />
-      </points>
     </group>
   );
 }
