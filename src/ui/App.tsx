@@ -4,7 +4,7 @@ import { Experience } from '../scene/Experience';
 import { BUNCH_KG } from '../sim/estate';
 import { RANGES, setShuttle, shift } from '../sim/tractor';
 import { IMPLEMENTS, TRAILER, grassTotal, nearBin, reachableTph, toggleLoad, toggleTip, type Implement } from '../sim/work';
-import { initSound, soundStatus } from '../sound';
+import { ensureAudio, soundStatus } from '../sound';
 import { tr, useUI, work, type CamMode } from '../store';
 import { Dashboard } from './Dashboard';
 import { Minimap } from './Minimap';
@@ -231,7 +231,7 @@ export function App() {
             <button
               className="big ok"
               onClick={() => {
-                initSound();
+                void ensureAudio();
                 useUI.getState().set({ started: true });
               }}
             >

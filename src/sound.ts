@@ -8,6 +8,7 @@
 import { ENGINE_WORKLET } from './engineWorklet';
 import { ptoRpm } from './sim/tractor';
 import { toast, tr, work } from './store';
+import { fallbackActive, fallbackEvent, startFallback, updateFallback } from './soundFallback';
 
 const BASE = import.meta.env.BASE_URL + 'audio/';
 let ctx: AudioContext | null = null;
@@ -64,6 +65,7 @@ export function audioDebug() {
     idle: N ? N.idle.g.gain.value.toFixed(2) : '-',
     mid: N ? N.mid.g.gain.value.toFixed(2) : '-',
     status: soundStatus.text,
+    fallback: fallbackActive(),
     attempts,
     lastError: lastError || '-',
   };
@@ -213,11 +215,30 @@ let wanted = false;
 let attempts = 0;
 let lastError = '';
 let building = false;
+let useFallbackNext = false;
 const retry = () => {
-  if (!wanted) return;
-  if (!ctx) void initSound();
-  else unlock(ctx);
+  if (!wanted || fallbackActive()) return;
+  if (useFallbackNext) {
+    startFallback();
+    if (master) master.gain.value = 0;
+    return report('jalur cadangan <audio> (Web Audio terkunci)', true);
+  }
+  void ensureAudio();
 };
+
+let clicked = false;
+/** The sequence that proved to work in Edge (the old test-tone button): create the context if needed, resume it,
+ * and play a tone straight to the speakers, all inside the user's gesture. The tone is the ignition key click. */
+export async function ensureAudio() {
+  wanted = true;
+  if (!ctx) await initSound();
+  if (!ctx) return;
+  await ctx.resume().catch(() => undefined);
+  if (!clicked) {
+    clicked = true;
+    keyClick(ctx);
+  }
+}
 for (const ev of ['pointerdown', 'pointerup', 'click', 'keydown', 'touchend']) addEventListener(ev, retry, { capture: true });
 
 /** Must be called from a user gesture. */
@@ -230,16 +251,21 @@ export async function initSound() {
   attempts++;
   let c: AudioContext;
   try {
+    if (new URLSearchParams(location.search).get('audio') === 'html') throw new Error('forced by ?audio=html');
     c = new AC();
   } catch (e) {
     lastError = `${(e as Error)?.name ?? ''} ${(e as Error)?.message ?? e}`.trim();
     console.error('AudioContext failed', e);
-    return report(`menunggu klik berikutnya (percobaan ${attempts}: ${lastError})`);
+    // Web Audio refused. It has worked on a later click, so try again once; after that use plain <audio>.
+    if (attempts >= 2 || lastError.includes('forced')) {
+      startFallback();
+      return report(`jalur cadangan <audio> (Web Audio gagal: ${lastError})`, true);
+    }
+    return report(`Web Audio gagal, mencoba lagi di klik berikutnya (${lastError})`);
   }
   building = true;
   ctx = c;
   unlock(ctx);
-  keyClick(ctx);
   report('memuat rekaman…');
   master = ctx.createGain();
   master.gain.value = enabled ? 0.9 : 0;
@@ -250,6 +276,13 @@ export async function initSound() {
     N = await build(ctx);
     report(ctx.state === 'running' ? `aktif${N.synth ? '' : ' (tanpa lapisan sintetis)'}` : 'dijeda browser, klik di mana saja', ctx.state === 'running');
     if (ctx.state !== 'running') toast('Klik di mana saja untuk menyalakan suara.', 6000);
+    // If the context still is not running a moment later, switch to the <audio> fallback (from the next gesture).
+    setTimeout(() => {
+      if (ctx && ctx.state !== 'running' && !fallbackActive()) {
+        useFallbackNext = true;
+        report('Web Audio terkunci, klik sekali lagi untuk jalur cadangan');
+      }
+    }, 1500);
     ctx.onstatechange = () => report(ctx!.state === 'running' ? 'aktif' : `status: ${ctx!.state}`, ctx!.state === 'running');
   } catch (e) {
     console.error('Sound failed to load', e);
@@ -302,6 +335,7 @@ function clunk(freq = 1600, gain = 0.4, len = 0.1) {
 }
 
 export function playEvent(e: string) {
+  fallbackEvent(e);
   if (!N) return;
   if (e === 'start') oneShot(N.startB, 1);
   else if (e === 'stop' || e === 'stall') oneShot(N.stopB, 1);
@@ -314,6 +348,7 @@ export function playEvent(e: string) {
 
 /** Per-frame update; `distance` from the camera to the tractor, `inCab` for the muffled cab view. */
 export function updateSound(distance: number, inCab: boolean) {
+  updateFallback(distance, inCab);
   if (!ctx || !N) return;
   const t = ctx.currentTime;
   const k = (p: AudioParam, v: number, tc = 0.05) => p.setTargetAtTime(v, t, tc);

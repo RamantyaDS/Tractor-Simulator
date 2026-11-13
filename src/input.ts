@@ -1,7 +1,7 @@
 // Keyboard and touch input mapped onto the tractor and implement controls.
 import { setShuttle, shift, startEngine, stopEngine } from './sim/tractor';
 import { attach, toggleLoad, toggleTip, type Implement } from './sim/work';
-import { initSound } from './sound';
+import { ensureAudio } from './sound';
 import { toast, tr, useUI, work } from './store';
 
 const held = new Set<string>();
@@ -27,7 +27,7 @@ export const KEYS: [string, string][] = [
 ];
 
 export function toggleEngine() {
-  void initSound(); // the key is a user gesture too: make sure audio exists
+  void ensureAudio(); // the key is a user gesture too: make sure audio exists and is running
   if (tr.engine === 'off') {
     if (tr.shuttle !== 'N') toast('Pindahkan shuttle ke N (netral) dulu: mesin hanya bisa distarter di netral.');
     startEngine(tr);
