@@ -64,6 +64,8 @@ export function audioDebug() {
     idle: N ? N.idle.g.gain.value.toFixed(2) : '-',
     mid: N ? N.mid.g.gain.value.toFixed(2) : '-',
     status: soundStatus.text,
+    attempts,
+    lastError: lastError || '-',
   };
 }
 
@@ -205,12 +207,37 @@ async function build(c: AudioContext) {
   return { startB, stopB, nb, engineBus, tone, idle, mid, synth, synthG, turbo, turboG, hyd, tyreF, tyreG, pto, ptoG, bladeF, bladeG, bladeLfo };
 }
 
+// After the user has asked for sound, every interaction retries: creating the AudioContext failed on the first
+// click in one Edge setup and only worked on a later one.
+let wanted = false;
+let attempts = 0;
+let lastError = '';
+let building = false;
+const retry = () => {
+  if (!wanted) return;
+  if (!ctx) void initSound();
+  else unlock(ctx);
+};
+for (const ev of ['pointerdown', 'pointerup', 'click', 'keydown', 'touchend']) addEventListener(ev, retry, { capture: true });
+
 /** Must be called from a user gesture. */
 export async function initSound() {
+  wanted = true;
   if (ctx) return ctx.resume();
+  if (building) return;
   const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AC) return report('browser tidak mendukung Web Audio');
-  ctx = new AC();
+  attempts++;
+  let c: AudioContext;
+  try {
+    c = new AC();
+  } catch (e) {
+    lastError = `${(e as Error)?.name ?? ''} ${(e as Error)?.message ?? e}`.trim();
+    console.error('AudioContext failed', e);
+    return report(`menunggu klik berikutnya (percobaan ${attempts}: ${lastError})`);
+  }
+  building = true;
+  ctx = c;
   unlock(ctx);
   keyClick(ctx);
   report('memuat rekaman…');
@@ -219,11 +246,6 @@ export async function initSound() {
   const comp = ctx.createDynamicsCompressor();
   comp.threshold.value = -12;
   master.connect(comp).connect(ctx.destination);
-  // Browsers may suspend audio (tab in background, power saving); resume on the next interaction.
-  // Some browsers (seen in Edge) keep the context locked even when it was created in a click; unlock again on
-  // every interaction until it is really running.
-  const wake = () => ctx && unlock(ctx);
-  for (const ev of ['pointerdown', 'pointerup', 'click', 'keydown', 'touchend']) addEventListener(ev, wake, { capture: true });
   try {
     N = await build(ctx);
     report(ctx.state === 'running' ? `aktif${N.synth ? '' : ' (tanpa lapisan sintetis)'}` : 'dijeda browser, klik di mana saja', ctx.state === 'running');
@@ -231,8 +253,10 @@ export async function initSound() {
     ctx.onstatechange = () => report(ctx!.state === 'running' ? 'aktif' : `status: ${ctx!.state}`, ctx!.state === 'running');
   } catch (e) {
     console.error('Sound failed to load', e);
-    report(`gagal: ${(e as Error)?.message ?? e}`);
+    lastError = `${(e as Error)?.message ?? e}`;
+    report(`gagal: ${lastError}`);
   }
+  building = false;
 }
 
 
