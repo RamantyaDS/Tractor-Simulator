@@ -172,20 +172,6 @@ export async function initSound() {
   }
 }
 
-/** Plays a plain 440 Hz beep straight to the speakers: no files, no filters. */
-export async function testBeep() {
-  if (!ctx) await initSound();
-  if (!ctx) return;
-  await ctx.resume();
-  const o = ctx.createOscillator();
-  const g = ctx.createGain();
-  g.gain.value = 0.25;
-  o.frequency.value = 440;
-  o.connect(g).connect(ctx.destination);
-  o.start();
-  o.stop(ctx.currentTime + 0.6);
-  report(`${soundStatus.text.split(' · ')[0]} · tes nada diputar (status ${ctx.state}, ${ctx.sampleRate} Hz)`, ctx.state === 'running');
-}
 
 export function setSound(on: boolean) {
   enabled = on;

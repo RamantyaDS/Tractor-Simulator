@@ -56,6 +56,11 @@ export function Slasher() {
       {[-1, 1].map((s) => (
         <Box key={s} s={[0.06, 0.12, 1.3]} m={M.grey} position={[s * 1.02, 0.08, 0]} />
       ))}
+      {/* safety chain curtains front and rear */}
+      {[-0.62, 0.62].map((z) =>
+        Array.from({ length: 16 }, (_, i) => <Box key={`${z}${i}`} s={[0.015, 0.16, 0.015]} m={M.steel} position={[-0.9 + i * 0.12, 0.02, z]} />),
+      )}
+      <Box s={[0.6, 0.02, 0.4]} m={M.yellow} position={[0, 0.34, 0.1]} />
       <group ref={blades} position={[0, 0.16, 0]}>
         <Box s={[1.8, 0.02, 0.12]} m={M.steel} />
         <Box s={[0.12, 0.02, 1.0]} m={M.steel} />
@@ -121,6 +126,14 @@ export function Spreader() {
       <mesh position={[0, 1.35, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[0.6, 24]} />
         <meshStandardMaterial color="#e8e2d0" roughness={0.9} />
+      </mesh>
+      {/* sieve grid over the fertiliser and a hinged cover edge */}
+      {[-0.4, -0.2, 0, 0.2, 0.4].map((x) => (
+        <Box key={x} s={[0.012, 0.012, 1.15]} m={M.grey} position={[x, 1.37, 0]} />
+      ))}
+      {/* deflector shield behind the disc */}
+      <mesh material={M.grey} position={[0, 0.55, -0.15]} rotation={[0, 0, 0]}>
+        <cylinderGeometry args={[0.45, 0.45, 0.2, 20, 1, true, Math.PI * 0.6, Math.PI * 0.8]} />
       </mesh>
       {[-1, 1].map((s) => (
         <Box key={s} s={[0.06, 0.8, 0.06]} m={M.grey} position={[s * 0.4, 0.35, 0]} />
@@ -218,6 +231,33 @@ export function Trailer() {
           </group>
         )),
       )}
+      {/* mudguards over the tandem wheels */}
+      {[-1, 1].map((s) => (
+        <group key={s} position={[s * 1.05, 0.46, 0]}>
+          <mesh material={M.black} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.55, 0.55, 0.36, 24, 1, true, Math.PI * 0.25, Math.PI * 0.5]} />
+          </mesh>
+          <mesh material={M.black} position={[0, 0, -0.55]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.55, 0.55, 0.36, 24, 1, true, Math.PI * 0.25, Math.PI * 0.5]} />
+          </mesh>
+        </group>
+      ))}
+      {/* rear light bar and reflectors */}
+      {[-1, 1].map((s) => (
+        <group key={s} position={[s * 0.85, 0.85, -1.72]}>
+          <Box s={[0.25, 0.12, 0.05]} m={M.black} />
+          <mesh position={[0, 0, -0.03]} rotation={[0, Math.PI, 0]}>
+            <planeGeometry args={[0.2, 0.08]} />
+            <meshStandardMaterial color="#c3141c" emissive="#7a0006" emissiveIntensity={0.5} />
+          </mesh>
+        </group>
+      ))}
+      {/* parking jack and the hydraulic/brake lines to the tractor */}
+      <Cyl r={0.04} l={0.7} m={M.grey} position={[0.15, 0.45, 3.5]} />
+      <Box s={[0.2, 0.03, 0.2]} m={M.grey} position={[0.15, 0.1, 3.5]} />
+      {[-0.08, 0, 0.08].map((x, i) => (
+        <Pipe key={x} pts={[[x, 0.85, 2.9], [x, 0.9, 3.6], [x * 0.5, 0.75, L - 0.1]]} r={0.012} m={i === 2 ? M.red : M.black} />
+      ))}
       {/* chassis and drawbar */}
       <Box s={[1.2, 0.18, 4.6]} m={M.grey} position={[0, 0.82, 0.6]} />
       <group ref={drawbar} position={[0, 0.7, 2.9]}>
@@ -249,7 +289,18 @@ export function Trailer() {
           <Cyl r={0.1} l={1.7} m={M.yellow} position={[0, 0.85, 0]} />
           <group ref={boom} position={[0, 1.7, 0]}>
             <Box s={[0.14, 0.18, 3.0]} m={M.yellow} position={[0, 0, 1.5]} />
-            <Cyl r={0.04} l={1.6} axis="z" m={M.steel} position={[0, -0.16, 0.9]} />
+            {/* boom lift cylinder underneath (barrel + chrome rod) and the stick cylinder on top */}
+            <group position={[0, -0.2, 0.15]} rotation={[-0.35, 0, 0]}>
+              <Cyl r={0.055} l={0.9} axis="z" m={M.yellow} position={[0, 0, 0.45]} />
+              <Cyl r={0.03} l={0.8} axis="z" m={M.chrome} position={[0, 0, 1.1]} />
+            </group>
+            <group position={[0, 0.16, 1.7]}>
+              <Cyl r={0.045} l={0.8} axis="z" m={M.yellow} position={[0, 0, 0.4]} />
+              <Cyl r={0.025} l={0.7} axis="z" m={M.chrome} position={[0, 0, 1.0]} />
+            </group>
+            {[-0.05, 0.05].map((x) => (
+              <Pipe key={x} pts={[[x, 0.11, 0], [x, 0.12, 1.5], [x, 0.1, 2.95]]} r={0.012} m={M.black} />
+            ))}
             <group ref={stick} position={[0, 0, 3.0]}>
               <Box s={[0.12, 0.15, 2.6]} m={M.yellow} position={[0, 0, 1.3]} />
               <group ref={grapple} position={[0, 0, 2.6]}>
@@ -272,6 +323,12 @@ export function Trailer() {
             </group>
           </group>
           <Box s={[0.6, 0.06, 0.5]} m={M.grey} position={[0, 0.2, -0.3]} />
+          {/* slewing ring and control valve block with levers */}
+          <Cyl r={0.22} l={0.08} m={M.grey} position={[0, 0.02, 0]} />
+          <Box s={[0.25, 0.18, 0.15]} m={M.black} position={[0.2, 0.35, -0.35]} />
+          {[0, 1, 2].map((i) => (
+            <Cyl key={i} r={0.008} l={0.2} m={M.black} position={[0.13 + i * 0.07, 0.52, -0.35]} />
+          ))}
         </group>
       </group>
     </group>

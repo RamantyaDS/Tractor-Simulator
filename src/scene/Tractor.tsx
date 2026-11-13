@@ -85,74 +85,115 @@ function Steered({ children, position }: { children: ReactNode; position: [numbe
   );
 }
 
-function Hood() {
-  // Side profile (z, y) of the bonnet, extruded across the width.
-  const geo = useMemo(() => {
-    const s = new THREE.Shape();
-    s.moveTo(1.12, 1.0);
-    s.lineTo(1.12, 1.9);
-    s.bezierCurveTo(2.0, 1.9, 3.0, 1.86, 3.55, 1.74);
-    s.bezierCurveTo(3.78, 1.68, 3.86, 1.5, 3.86, 1.3);
-    s.lineTo(3.84, 1.0);
-    s.lineTo(1.12, 1.0);
-    const g = new THREE.ExtrudeGeometry(s, { depth: 0.92, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.04, bevelSegments: 3, curveSegments: 16 });
-    g.rotateY(-Math.PI / 2);
-    g.translate(0.46, 0, 0);
-    return g;
-  }, []);
-  const grille = useCanvasTexture(256, 256, (g) => {
-    g.fillStyle = '#0c0c0d';
-    g.fillRect(0, 0, 256, 256);
-    g.strokeStyle = '#2a2b2d';
-    g.lineWidth = 3;
-    for (let y = -256; y < 512; y += 18) {
+function honeycomb() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#0a0a0b';
+  g.fillRect(0, 0, 128, 128);
+  g.strokeStyle = '#2e3033';
+  g.lineWidth = 2;
+  for (let y = 0; y < 140; y += 12)
+    for (let x = (y / 12) % 2 ? 7 : 0; x < 140; x += 14) {
       g.beginPath();
-      g.moveTo(0, y);
-      g.lineTo(256, y + 128);
-      g.stroke();
-      g.beginPath();
-      g.moveTo(0, y + 128);
-      g.lineTo(256, y);
+      for (let k = 0; k < 6; k++) {
+        const a = (k / 6) * Math.PI * 2 + Math.PI / 6;
+        g[k ? 'lineTo' : 'moveTo'](x + Math.cos(a) * 6, y + Math.sin(a) * 6);
+      }
+      g.closePath();
       g.stroke();
     }
-  });
-  const grilleMat = useMemo(() => new THREE.MeshStandardMaterial({ map: grille, metalness: 0.5, roughness: 0.5 }), [grille]);
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(3, 2);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function Hood() {
+  // Bonnet: side profile (z, y) extruded across the width, then narrowed toward the nose as on the 5M.
+  const geo = useMemo(() => {
+    const s = new THREE.Shape();
+    s.moveTo(1.12, 1.3);
+    s.lineTo(1.12, 1.9);
+    s.bezierCurveTo(2.0, 1.92, 3.0, 1.88, 3.5, 1.8);
+    s.bezierCurveTo(3.75, 1.76, 3.9, 1.7, 3.9, 1.6);
+    s.lineTo(3.9, 1.3);
+    s.lineTo(1.12, 1.3);
+    const g = new THREE.ExtrudeGeometry(s, { depth: 0.84, bevelEnabled: true, bevelThickness: 0.06, bevelSize: 0.07, bevelSegments: 5, curveSegments: 20 });
+    g.rotateY(-Math.PI / 2);
+    g.translate(0.42, 0, 0);
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const z = p.getZ(i);
+      if (z > 2.6) p.setX(i, p.getX(i) * (1 - 0.14 * Math.min(1, (z - 2.6) / 1.3)));
+    }
+    g.computeVertexNormals();
+    return g;
+  }, []);
+  const grilleMat = useMemo(() => new THREE.MeshStandardMaterial({ map: honeycomb(), metalness: 0.5, roughness: 0.45 }), []);
+  const ventMat = useMemo(() => {
+    const t = honeycomb();
+    t.repeat.set(8, 1.5);
+    return new THREE.MeshStandardMaterial({ map: t, metalness: 0.4, roughness: 0.5 });
+  }, []);
   return (
     <group>
       <mesh geometry={geo} material={M.red} castShadow receiveShadow />
-      {/* grey side stripe with the name, as on the 5M bonnet */}
+      {/* dark lower side panels with long vents under the red bonnet */}
+      <Box s={[0.86, 0.36, 2.62]} r={0.03} m={M.black} position={[0, 1.13, 2.48]} />
       {[-1, 1].map((s) => (
         <group key={s}>
-          <mesh material={M.stripe} position={[s * 0.502, 1.66, 2.35]} rotation={[0, (s * Math.PI) / 2, 0]}>
-            <planeGeometry args={[2.3, 0.2]} />
+          <mesh material={ventMat} position={[s * 0.432, 1.14, 2.75]} rotation={[0, (s * Math.PI) / 2, 0]}>
+            <planeGeometry args={[1.6, 0.22]} />
           </mesh>
-          <Text position={[s * 0.506, 1.66, 2.35]} rotation={[0, (s * Math.PI) / 2, 0]} fontSize={0.1} color="#f2f2f2" anchorX="center" anchorY="middle">
+          {/* grey band with the name along the bonnet side */}
+          <mesh material={M.stripe} position={[s * 0.495, 1.58, 2.25]} rotation={[0, (s * Math.PI) / 2, 0]}>
+            <planeGeometry args={[2.1, 0.16]} />
+          </mesh>
+          <Text position={[s * 0.5, 1.58, 2.25]} rotation={[0, (s * Math.PI) / 2, 0]} fontSize={0.085} color="#f2f2f2" anchorX="center" anchorY="middle">
             MASSEY FERGUSON
           </Text>
-          {/* side air intake */}
-          <mesh material={grilleMat} position={[s * 0.503, 1.32, 3.05]} rotation={[0, (s * Math.PI) / 2, 0]}>
-            <planeGeometry args={[0.8, 0.3]} />
-          </mesh>
-          <Text position={[s * 0.506, 1.48, 1.55]} rotation={[0, (s * Math.PI) / 2, 0]} fontSize={0.07} color="#e6e6e6">
+          <Text position={[s * 0.5, 1.42, 1.5]} rotation={[0, (s * Math.PI) / 2, 0]} fontSize={0.065} color="#e6e6e6">
             5M.145
           </Text>
+          {/* slim LED headlight in each upper corner of the nose */}
+          <group position={[s * 0.27, 1.6, 3.985]} rotation={[0, 0, -s * 0.12]}>
+            <Box s={[0.2, 0.07, 0.03]} r={0.01} m={M.black} />
+            <Box s={[0.17, 0.022, 0.012]} m={M.lamp} position={[0, 0.014, 0.016]} />
+            <Box s={[0.14, 0.018, 0.012]} m={M.lamp} position={[0, -0.016, 0.016]} />
+          </group>
         </group>
       ))}
-      {/* front grille, slim LED headlights and lower lamps */}
-      <mesh material={grilleMat} position={[0, 1.33, 3.905]}>
-        <planeGeometry args={[0.78, 0.55]} />
+      {/* black honeycomb grille on the nose (red surround) and the lower intake; MF badge above */}
+      <mesh material={grilleMat} position={[0, 1.42, 3.99]}>
+        <planeGeometry args={[0.42, 0.2]} />
       </mesh>
-      {[-1, 1].map((s) => (
-        <group key={s}>
-          <Box s={[0.26, 0.05, 0.05]} m={M.lamp} position={[s * 0.3, 1.66, 3.72]} rotation={[0.25, 0, -s * 0.15]} />
-          <Box s={[0.14, 0.08, 0.04]} m={M.lamp} position={[s * 0.33, 1.08, 3.86]} />
-        </group>
-      ))}
-      {/* MF triple-triangle badge */}
-      <mesh position={[0, 1.66, 3.79]} rotation={[-0.3, 0, Math.PI]}>
-        <circleGeometry args={[0.07, 3]} />
-        <meshStandardMaterial color="#d9d9d9" metalness={0.8} roughness={0.25} />
+      <mesh material={grilleMat} position={[0, 1.13, 3.795]}>
+        <planeGeometry args={[0.7, 0.3]} />
       </mesh>
+      <group position={[0, 1.57, 3.99]}>
+        {[0, 1, 2].map((i) => (
+          <mesh key={i} position={[(i - 1) * 0.045, i === 1 ? -0.02 : 0, 0.001]} rotation={[0, 0, Math.PI]}>
+            <circleGeometry args={[0.035, 3]} />
+            <meshStandardMaterial color="#e5e5e5" metalness={0.8} roughness={0.2} />
+          </mesh>
+        ))}
+      </group>
+      {/* exhaust after-treatment / air intake box under the bonnet, visible below the panels */}
+      <Box s={[0.5, 0.25, 0.6]} r={0.03} m={M.grey} position={[0, 0.92, 3.2]} />
+    </group>
+  );
+}
+
+/** Pivoting front mudguards: they turn with the wheels but don't spin. */
+function FrontFender({ side }: { side: 1 | -1 }) {
+  return (
+    <group>
+      <mesh material={M.black} rotation={[0, 0, Math.PI / 2]} castShadow>
+        <cylinderGeometry args={[FR + 0.06, FR + 0.06, 0.44, 24, 1, true, Math.PI * 0.12, Math.PI * 0.62]} />
+      </mesh>
+      <Box s={[0.05, 0.05, 0.45]} m={M.grey} position={[-side * 0.25, FR * 0.55, 0.1]} rotation={[0.6, 0, 0]} />
     </group>
   );
 }
@@ -184,16 +225,29 @@ function Cab() {
       <mesh material={M.glass} position={[0, 2.06, -0.4]}>
         <planeGeometry args={[1.24, 1.2]} />
       </mesh>
-      {/* door frames and handles */}
+      {/* full-glass doors: rubber edges, hinge side, handle; handrail beside the left door */}
       {[-1, 1].map((s) => (
         <group key={s}>
           <Box s={[0.03, 1.15, 0.03]} m={M.black} position={[s * 0.665, 2.04, 0.3]} />
-          <Box s={[0.02, 0.03, 0.12]} m={M.chrome} position={[s * 0.68, 1.95, 0.22]} />
+          <Box s={[0.025, 0.025, 1.4]} m={M.black} position={[s * 0.665, 1.5, 0.37]} />
+          <Box s={[0.025, 0.025, 1.4]} m={M.black} position={[s * 0.665, 2.62, 0.37]} />
+          <Box s={[0.03, 0.035, 0.14]} m={M.chrome} position={[s * 0.68, 1.95, 0.22]} />
+          {[0.95, -0.25].map((z) => (
+            <Box key={z} s={[0.03, 0.08, 0.04]} m={M.grey} position={[s * 0.67, z > 0 ? 2.4 : 1.7, z]} />
+          ))}
         </group>
       ))}
-      {/* white roof with visor, work lights, beacon and antenna */}
-      <Box s={[1.58, 0.12, 1.8]} r={0.04} m={M.white} position={[0, 2.69, 0.36]} />
+      <Cyl r={0.014} l={0.95} m={M.chrome} position={[0.72, 1.98, 1.02]} />
+      <Cyl r={0.014} l={0.85} m={M.chrome} position={[0.72, 2.0, -0.32]} />
+      {/* windscreen and rear wipers */}
+      <Box s={[0.6, 0.012, 0.012]} m={M.black} position={[0.05, 1.62, 1.16]} rotation={[0, 0, 0.55]} />
+      <Box s={[0.5, 0.012, 0.012]} m={M.black} position={[0, 2.3, -0.42]} rotation={[0, 0, -0.4]} />
+      {/* white roof, slightly crowned, with a black lower trim and front visor; work lights, beacon, antenna */}
+      <Box s={[1.6, 0.14, 1.82]} r={0.06} m={M.white} position={[0, 2.7, 0.36]} />
+      <Box s={[1.5, 0.06, 1.72]} r={0.05} m={M.white} position={[0, 2.79, 0.36]} />
+      <Box s={[1.62, 0.04, 1.84]} m={M.black} position={[0, 2.62, 0.36]} />
       <Box s={[1.4, 0.05, 0.25]} m={M.black} position={[0, 2.62, 1.3]} rotation={[0.15, 0, 0]} />
+      <Box s={[0.5, 0.05, 0.35]} r={0.02} m={M.greyLight} position={[0, 2.84, 0.1]} />
       {[-0.55, -0.2, 0.2, 0.55].map((x) => (
         <Box key={x} s={[0.14, 0.08, 0.06]} m={M.lamp} position={[x, 2.66, 1.27]} />
       ))}
@@ -206,10 +260,15 @@ function Cab() {
       {[-1, 1].map((s) => (
         <group key={s}>
           <Pipe pts={[[s * 0.66, 2.3, 1.05], [s * 0.95, 2.35, 1.15], [s * 1.08, 2.25, 1.2]]} r={0.015} m={M.black} />
-          <Box s={[0.05, 0.32, 0.18]} r={0.02} m={M.black} position={[s * 1.1, 2.12, 1.2]} />
-          <mesh position={[s * 1.1, 2.12, 1.11]}>
-            <planeGeometry args={[0.15, 0.28]} />
+          {/* split mirror: main glass above, wide-angle below */}
+          <Box s={[0.05, 0.4, 0.2]} r={0.02} m={M.black} position={[s * 1.1, 2.1, 1.2]} />
+          <mesh position={[s * 1.1, 2.17, 1.095]} rotation={[0, Math.PI, 0]}>
+            <planeGeometry args={[0.16, 0.22]} />
             <meshStandardMaterial color="#9fb4c2" metalness={1} roughness={0.05} />
+          </mesh>
+          <mesh position={[s * 1.1, 1.97, 1.095]} rotation={[0, Math.PI, 0]}>
+            <planeGeometry args={[0.16, 0.12]} />
+            <meshStandardMaterial color="#8aa2b2" metalness={1} roughness={0.1} />
           </mesh>
         </group>
       ))}
@@ -284,6 +343,31 @@ function CabInterior() {
   );
 }
 
+/** Vertical lift rods from the lift arms down to the lower links, following the hitch. */
+function LiftRods() {
+  const rods = useRef<THREE.Mesh[]>([]);
+  useFrame(() => {
+    const a = -0.3 + tr.hitch * 0.75;
+    const lowY = 0.55 + Math.sin(a) * 0.45;
+    const armA = -0.2 - tr.hitch * 0.6;
+    const topY = 1.15 - Math.sin(armA) * 0.5;
+    rods.current.forEach((m) => {
+      if (!m) return;
+      m.position.y = (lowY + topY) / 2;
+      m.scale.y = Math.max(0.2, topY - lowY);
+    });
+  });
+  return (
+    <group>
+      {[-1, 1].map((s, i) => (
+        <mesh key={s} ref={(m) => (rods.current[i] = m!)} material={M.grey} position={[s * 0.35, 0.8, -0.78]}>
+          <boxGeometry args={[0.04, 1, 0.04]} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 /** Three-point linkage: lower links, lift arms with lift rods, top link; lifts with the hitch value. */
 function Linkage() {
   const lower = useRef<THREE.Group[]>([]);
@@ -309,6 +393,12 @@ function Linkage() {
         </group>
       ))}
       <Box s={[0.06, 0.06, 0.5]} m={M.yellow} position={[0, 1.0, -0.7]} rotation={[0.15, 0, 0]} />
+      <LiftRods />
+      {/* pick-up hitch hook under the PTO */}
+      <Box s={[0.5, 0.12, 0.18]} m={M.grey} position={[0, 0.58, -0.5]} />
+      <mesh material={M.steel} position={[0, 0.5, -0.62]} rotation={[0, Math.PI / 2, 0]}>
+        <torusGeometry args={[0.06, 0.02, 8, 16, Math.PI * 1.4]} />
+      </mesh>
       {/* PTO stub with shield, drawbar with pin */}
       <Cyl r={0.025} l={0.12} axis="z" m={M.steel} position={[0, 0.66, -0.62]} />
       <Box s={[0.26, 0.03, 0.14]} m={M.redDark} position={[0, 0.76, -0.6]} />
@@ -331,16 +421,25 @@ function Body() {
       <Box s={[0.9, 0.55, 0.7]} r={0.05} m={M.grey} position={[0, RR, -0.05]} />
       <Cyl r={0.15} l={SPEC.rearTrack - 0.2} axis="x" m={M.grey} position={[0, RR, 0]} />
       {/* front weight frame with weights */}
-      <Box s={[0.7, 0.55, 0.22]} m={M.grey} position={[0, 0.9, 3.95]} />
+      <Box s={[0.7, 0.4, 0.22]} m={M.grey} position={[0, 0.78, 3.9]} />
       {Array.from({ length: 7 }, (_, i) => (
-        <Box key={i} s={[0.09, 0.45, 0.3]} r={0.015} m={M.greyLight} position={[-0.3 + i * 0.1, 0.92, 4.2]} />
+        <Box key={i} s={[0.09, 0.38, 0.28]} r={0.015} m={M.greyLight} position={[-0.3 + i * 0.1, 0.76, 4.14]} />
       ))}
-      {/* front axle beam and diff */}
+      <mesh material={M.steel} position={[0, 0.62, 4.3]} rotation={[0, Math.PI / 2, 0]}>
+        <torusGeometry args={[0.05, 0.018, 8, 16]} />
+      </mesh>
+      {/* front axle: beam, centre diff, steering cylinder, drive shaft from the gearbox */}
       <Box s={[SPEC.frontTrack - 0.35, 0.16, 0.2]} m={M.grey} position={[0, FR, WB]} />
       <Cyl r={0.17} l={0.3} axis="z" m={M.grey} position={[0, FR, WB]} />
+      <Cyl r={0.035} l={1.1} axis="x" m={M.steel} position={[0, FR + 0.05, WB - 0.18]} />
+      <Cyl r={0.05} l={0.4} axis="x" m={M.black} position={[0.3, FR + 0.05, WB - 0.18]} />
+      <Cyl r={0.04} l={1.7} axis="z" m={M.steel} position={[0, 0.55, WB / 2 + 0.3]} />
       {/* fuel tank and steps on the left (+x), exhaust stack on the right A-pillar */}
       <Box s={[0.3, 0.5, 0.75]} r={0.06} m={M.black} position={[0.62, 1.05, 1.35]} />
       <Cyl r={0.06} l={0.06} m={M.black} position={[0.66, 1.33, 1.6]} />
+      {/* AdBlue-style blue cap and battery box under the steps */}
+      <Cyl r={0.03} l={0.04} m={M.blue} position={[0.66, 1.33, 1.2]} />
+      <Box s={[0.28, 0.22, 0.35]} r={0.02} m={M.black} position={[0.66, 0.38, 0.75]} />
       {[0.5, 0.82, 1.14].map((y, i) => (
         <Box key={y} s={[0.3, 0.035, 0.32]} m={M.black} position={[0.88 + (2 - i) * 0.03, y, 0.75]} />
       ))}
@@ -365,7 +464,16 @@ function Body() {
             <ringGeometry args={[RR - 0.02, RR + 0.08, 32, 1, Math.PI * 0.2, Math.PI * 0.6]} />
           </mesh>
           <Box s={[0.62, 0.04, 0.5]} m={M.black} position={[0, RR + 0.08, -0.7]} rotation={[-0.4, 0, 0]} />
+          {/* indicator at the front of the fender; rear cluster (tail, brake, indicator) and work light at the back */}
           <Box s={[0.12, 0.08, 0.06]} m={M.amber} position={[s * 0.25, 0.25, RR + 0.08]} />
+          <group position={[s * 0.2, 0.42, -RR + 0.02]}>
+            <Box s={[0.22, 0.12, 0.05]} r={0.015} m={M.black} />
+            <Box s={[0.08, 0.06, 0.02]} m={M.amber} position={[-s * 0.05, 0, -0.03]} />
+            <mesh position={[s * 0.05, 0, -0.026]} rotation={[0, Math.PI, 0]}>
+              <planeGeometry args={[0.08, 0.06]} />
+              <meshStandardMaterial color="#c3141c" emissive="#7a0006" emissiveIntensity={0.6} />
+            </mesh>
+          </group>
           <Box s={[0.12, 0.08, 0.06]} m={M.lamp} position={[s * 0.25, 0.75, -0.75]} />
         </group>
       ))}
@@ -398,6 +506,7 @@ export function TractorModel() {
       ))}
       {[-1, 1].map((s) => (
         <Steered key={s} position={[s * (SPEC.frontTrack / 2), FR, WB]}>
+          <FrontFender side={s as 1 | -1} />
           <Spinning get={() => tr.frontAngle}>
             <Wheel r={FR} width={0.38} rim={0.36} lugs={18} side={s as 1 | -1} />
           </Spinning>
