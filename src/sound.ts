@@ -7,7 +7,7 @@
 // On top: a synthesized combustion layer that gets louder with load, tyre/ground noise, PTO and implement sounds.
 import { ENGINE_WORKLET } from './engineWorklet';
 import { ptoRpm } from './sim/tractor';
-import { tr, work } from './store';
+import { toast, tr, work } from './store';
 
 const BASE = import.meta.env.BASE_URL + 'audio/';
 let ctx: AudioContext | null = null;
@@ -21,6 +21,19 @@ const report = (text: string, ok = false) => {
   soundStatus.text = text;
   soundStatus.ok = ok;
 };
+
+/** Resume and play a short silent buffer from inside a user gesture: the reliable way to unlock Web Audio. */
+function unlock(c: AudioContext) {
+  if (c.state === 'running' && unlocked) return;
+  c.resume().catch(() => undefined);
+  const b = c.createBuffer(1, 1, c.sampleRate);
+  const s = c.createBufferSource();
+  s.buffer = b;
+  s.connect(c.destination);
+  s.start(0);
+  unlocked = c.state === 'running';
+}
+let unlocked = false;
 
 async function load(c: AudioContext, name: string) {
   const r = await fetch(BASE + name);
@@ -152,6 +165,7 @@ export async function initSound() {
   const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AC) return report('browser tidak mendukung Web Audio');
   ctx = new AC();
+  unlock(ctx);
   report('memuat rekaman…');
   master = ctx.createGain();
   master.gain.value = enabled ? 0.9 : 0;
@@ -159,12 +173,14 @@ export async function initSound() {
   comp.threshold.value = -12;
   master.connect(comp).connect(ctx.destination);
   // Browsers may suspend audio (tab in background, power saving); resume on the next interaction.
-  const wake = () => ctx?.state !== 'running' && ctx?.resume();
-  addEventListener('pointerdown', wake);
-  addEventListener('keydown', wake);
+  // Some browsers (seen in Edge) keep the context locked even when it was created in a click; unlock again on
+  // every interaction until it is really running.
+  const wake = () => ctx && unlock(ctx);
+  for (const ev of ['pointerdown', 'pointerup', 'click', 'keydown', 'touchend']) addEventListener(ev, wake, { capture: true });
   try {
     N = await build(ctx);
     report(ctx.state === 'running' ? `aktif${N.synth ? '' : ' (tanpa lapisan sintetis)'}` : 'dijeda browser, klik di mana saja', ctx.state === 'running');
+    if (ctx.state !== 'running') toast('Klik di mana saja untuk menyalakan suara.', 6000);
     ctx.onstatechange = () => report(ctx!.state === 'running' ? 'aktif' : `status: ${ctx!.state}`, ctx!.state === 'running');
   } catch (e) {
     console.error('Sound failed to load', e);
