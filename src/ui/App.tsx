@@ -213,6 +213,16 @@ export function App() {
   return (
     <>
       <Experience />
+      <Hud />
+      {!started && <Intro />}
+    </>
+  );
+}
+
+/** Everything on screen over the 3D view; the Traknus World shows this while the player drives the tractor. */
+export function Hud() {
+  return (
+    <>
       <header className="brand">
         <h1>MF 5M.145</h1>
         <p>Simulator traktor · kebun sawit</p>
@@ -224,31 +234,34 @@ export function App() {
       <Help />
       <Touch />
       <Debug />
-      {!started && (
-        <div className="intro">
-          <div>
-            <h1>Simulator Traktor MF 5M.145</h1>
-            <p>
-              Kendarai traktor 145 hp di blok kebun sawit: angkut janjang dari TPH dengan trailer dan crane, babat gawangan dengan slasher, atau tabur pupuk
-              dengan spreader. Suara mesin dari rekaman traktor diesel asli.
-            </p>
-            <ol>
-              <li>Klik Hidupkan mesin (shuttle harus di N)</li>
-              <li>Pilih gigi, lalu tekan Maju</li>
-              <li>Tambah gas tangan atau tekan W</li>
-            </ol>
-            <button
-              className="big ok"
-              onClick={() => {
-                void ensureAudio();
-                useUI.getState().set({ started: true });
-              }}
-            >
-              Mulai (suara aktif)
-            </button>
-          </div>
-        </div>
-      )}
     </>
+  );
+}
+
+function Intro() {
+  return (
+    <div className="intro">
+      <div>
+        <h1>Simulator Traktor MF 5M.145</h1>
+        <p>
+          Kendarai traktor 145 hp di blok kebun sawit: angkut janjang dari TPH dengan trailer dan crane, babat gawangan dengan slasher, atau tabur pupuk
+          dengan spreader. Suara mesin dari rekaman traktor diesel asli.
+        </p>
+        <ol>
+          <li>Klik Hidupkan mesin (shuttle harus di N)</li>
+          <li>Pilih gigi, lalu tekan Maju</li>
+          <li>Tambah gas tangan atau tekan W</li>
+        </ol>
+        <button
+          className="big ok"
+          onClick={() => {
+            void ensureAudio();
+            useUI.getState().set({ started: true });
+          }}
+        >
+          Mulai (suara aktif)
+        </button>
+      </div>
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 // Keyboard and touch input mapped onto the tractor and implement controls.
 import { setShuttle, shift, startEngine, stopEngine } from './sim/tractor';
 import { attach, toggleLoad, toggleTip, type Implement } from './sim/work';
+import { EMBED } from './embed';
 import { ensureAudio } from './sound';
 import { toast, tr, useUI, work } from './store';
 
@@ -42,6 +43,10 @@ export function setImplement(k: Implement) {
 export const CAMS = ['chase', 'cab', 'orbit', 'top', 'show'] as const;
 
 function onKey(e: KeyboardEvent) {
+  if (!EMBED.input) {
+    held.clear();
+    return;
+  }
   if ((e.target as HTMLElement)?.tagName === 'INPUT' || (e.target as HTMLElement)?.tagName === 'SELECT') return;
   const k = e.key.toLowerCase();
   if (e.type === 'keyup') return void held.delete(k);

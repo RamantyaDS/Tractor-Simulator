@@ -128,6 +128,24 @@ function CameraRig() {
   return cam === 'orbit' ? <OrbitControls ref={orbit} makeDefault enablePan={false} minDistance={4} maxDistance={40} maxPolarAngle={Math.PI * 0.48} target={[tr.x, tr.y + 1.3, tr.z]} /> : null;
 }
 
+/**
+ * The estate and the tractor, without sky or lights. The Traknus World mounts this as one zone; `drive` is false there
+ * while the player walks around (the world moves the camera, the keys stay off).
+ */
+export function ZoneContent({ drive = true }: { drive?: boolean }) {
+  return (
+    <>
+      <World />
+      <TractorModel />
+      <Trailer />
+      <Exhaust />
+      <Fx />
+      {drive && <CameraRig />}
+      <Driver />
+    </>
+  );
+}
+
 export function Experience() {
   return (
     <Canvas shadows dpr={[1, 1.75]} camera={{ position: [6, 5, -106], fov: 50, near: 0.1, far: 400 }}>
@@ -136,13 +154,7 @@ export function Experience() {
       <Sky sunPosition={[60, 45, 30]} turbidity={6} rayleigh={1.2} mieCoefficient={0.006} />
       <hemisphereLight args={['#d8ecff', '#4a5a2a', 0.85]} />
       <SunFollow />
-      <World />
-      <TractorModel />
-      <Trailer />
-      <Exhaust />
-      <Fx />
-      <CameraRig />
-      <Driver />
+      <ZoneContent />
     </Canvas>
   );
 }
