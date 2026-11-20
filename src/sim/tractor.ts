@@ -1,6 +1,7 @@
 // MF 5M.145 driveline and vehicle dynamics. Pure logic: the scene, sound and dashboard read this state.
 // Engine: AGCO Power 4.4 L, 145 hp at 2000 rpm, 560 Nm at 1500 rpm. Transmission: 12x12 synchro, 4 gears × 3 ranges,
 // power shuttle. Two-mode traction: wheels roll with the engine until the tyres' grip limit, then they spin.
+import { EMBED, hitsSolid } from '../embed';
 import { GROUND, height, surface, type Surface } from './estate';
 
 export const SPEC = {
@@ -319,6 +320,16 @@ export function step(t: Tractor, dt: number) {
   t.heading += yawRate * dt;
   t.x += Math.sin(t.heading) * t.v * dt;
   t.z += Math.cos(t.heading) * t.v * dt;
+  // a solid of the Traknus World (its truck) stops the tractor
+  if (EMBED.solids.length) {
+    const mid = SPEC.wheelbase / 2;
+    const box = { x: t.x + Math.sin(t.heading) * mid, z: t.z + Math.cos(t.heading) * mid, hx: 1.2, hz: 2.2, yaw: t.heading, y0: 0, y1: 3 };
+    if (hitsSolid(box)) {
+      t.x -= Math.sin(t.heading) * t.v * dt;
+      t.z -= Math.cos(t.heading) * t.v * dt;
+      t.v = 0;
+    }
+  }
 
   // Body follows the ground under the four wheels.
   const fx = Math.sin(t.heading);
