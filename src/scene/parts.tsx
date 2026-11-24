@@ -1,8 +1,8 @@
 // Small building blocks and shared materials for the procedural models. Units are metres.
-import { RoundedBox } from '@react-three/drei';
 import type { ThreeElements } from '@react-three/fiber';
 import { useMemo } from 'react';
 import * as THREE from 'three';
+import { toCreasedNormals } from 'three-stdlib';
 
 export const M = {
   red: new THREE.MeshStandardMaterial({ color: '#b5121b', metalness: 0.35, roughness: 0.32 }),
@@ -29,9 +29,31 @@ export const M = {
 type V3 = [number, number, number];
 type MeshProps = Omit<ThreeElements['mesh'], 'args'>;
 
+// Rounded boxes share one geometry per size (the same shape drei's <RoundedBox> builds): a scene with hundreds of
+// them no longer builds hundreds of extrusions when it mounts.
+const roundedCache = new Map<string, THREE.BufferGeometry>();
+function roundedGeo([w, h, d]: V3, r: number) {
+  const key = `${w}|${h}|${d}|${r}`;
+  let g = roundedCache.get(key);
+  if (!g) {
+    const e = 0.00001;
+    const rr = r - e;
+    const shape = new THREE.Shape();
+    shape.absarc(e, e, e, -Math.PI / 2, -Math.PI, true);
+    shape.absarc(e, h - rr * 2, e, Math.PI, Math.PI / 2, true);
+    shape.absarc(w - rr * 2, h - rr * 2, e, Math.PI / 2, 0, true);
+    shape.absarc(w - rr * 2, e, e, 0, -Math.PI / 2, true);
+    const ex = new THREE.ExtrudeGeometry(shape, { depth: d - r * 2, bevelEnabled: true, bevelSegments: 8, steps: 1, bevelSize: r - e, bevelThickness: r, curveSegments: 2 });
+    ex.center();
+    g = toCreasedNormals(ex, 0.4);
+    roundedCache.set(key, g);
+  }
+  return g;
+}
+
 export function Box({ s, r = 0, m, ...p }: MeshProps & { s: V3; r?: number; m: THREE.Material }) {
   if (r > 0)
-    return <RoundedBox args={s} radius={r} smoothness={2} material={m} castShadow receiveShadow {...(p as object)} />;
+    return <mesh geometry={roundedGeo(s, r)} material={m} castShadow receiveShadow {...p} />;
   return (
     <mesh material={m} castShadow receiveShadow {...p}>
       <boxGeometry args={s} />
